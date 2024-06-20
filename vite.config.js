@@ -1,6 +1,7 @@
 import {defineConfig, splitVendorChunkPlugin} from 'vite';
-import {VitePWA} from 'vite-plugin-pwa';
+import {VitePWA as vitePWA} from 'vite-plugin-pwa';
 import react from '@vitejs/plugin-react';
+import macrosPlugin from 'vite-plugin-babel-macros';
 import {resolve} from 'path';
 
 import manifest from './manifest.js';
@@ -16,5 +17,13 @@ export default defineConfig({
             },
         },
     },
-    plugins: [react(), splitVendorChunkPlugin(), VitePWA(manifest)],
+    workbox: {
+        importScripts: ['./setupNotification'],
+    },
+    plugins: [
+        macrosPlugin(),
+        react(),
+        splitVendorChunkPlugin(),
+        vitePWA(manifest),
+    ],
 });

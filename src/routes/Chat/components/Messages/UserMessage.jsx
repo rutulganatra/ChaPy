@@ -1,15 +1,25 @@
 import React from 'react';
-import {Avatar, Container, Paper, Typography, useTheme} from '@mui/material';
+import {
+    Avatar,
+    Container,
+    Paper,
+    useTheme,
+} from '@mui/material';
 import PropTypes from 'prop-types';
 import {useLoaderData} from 'react-router-dom';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
-const UserMessage = ({isThisUser, sender, text, l, f}) => {
+import './mdStyling.css';
+
+
+const UserMessage = ({isThisUser, sender, text, isLast, isFirst}) => {
     const {randImgApi} = useLoaderData();
 
     const theme = useTheme();
     const borderRadiusValue = isThisUser ?
-        `13px ${f?'13px':'2px'} ${l?'13px':'2px'} 13px` :
-        `${f?'13px':'2px'} 13px 13px ${l?'13px':'2px'}`;
+        `13px ${isFirst?'13px':'2px'} ${isLast?'13px':'2px'} 13px` :
+        `${isFirst?'13px':'2px'} 13px 13px ${isLast?'13px':'2px'}`;
     return (
         <Container sx={{
             display: 'flex',
@@ -21,11 +31,12 @@ const UserMessage = ({isThisUser, sender, text, l, f}) => {
                 width: .96,
             },
             p: 0,
-            pb: l?'.5rem':'',
+            pb: isLast ? '.5rem' : '',
         }}>
             { !isThisUser ?
-                l ?
+                isLast ?
                     <Avatar
+                        alt={sender}
                         src={randImgApi.getLink(
                             import.meta.env.VITE_RANDIMG_API_MODEL, sender,
                         )}
@@ -57,10 +68,9 @@ const UserMessage = ({isThisUser, sender, text, l, f}) => {
                     objectFit: 'contain',
                 }}
             >
-                <Typography
-                    variant={'body1'}
-                    sx={{lineBreak: 'anywhere'}}
-                >{text}</Typography>
+                <div className={'markdown'}>
+                    <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
+                </div>
             </Paper>
         </Container>
     );
@@ -70,8 +80,8 @@ UserMessage.propTypes = {
     isThisUser: PropTypes.bool,
     text: PropTypes.string,
     sender: PropTypes.string,
-    f: PropTypes.bool,
-    l: PropTypes.bool,
+    isFirst: PropTypes.bool,
+    isLast: PropTypes.bool,
 };
 
 export default UserMessage;

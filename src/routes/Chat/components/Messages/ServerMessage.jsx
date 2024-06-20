@@ -1,8 +1,9 @@
 import React from 'react';
 import {Avatar, Chip, Container} from '@mui/material';
+import {useLoaderData} from 'react-router-dom';
 
 import PropTypes from 'prop-types';
-import {useLoaderData} from 'react-router-dom';
+
 
 const ServerMessage = ({text, sender}) => {
     const {randImgApi} = useLoaderData();
@@ -19,7 +20,7 @@ const ServerMessage = ({text, sender}) => {
             <Chip
                 avatar={
                     <Avatar
-                        alt="Test"
+                        alt={sender}
                         src={randImgApi.getLink(
                             import.meta.env.VITE_RANDIMG_API_MODEL, sender,
                         )}

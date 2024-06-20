@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, {
+    useEffect,
+    useRef,
+    useState,
+} from 'react';
 
-import '../../../../InputStyles.css';
+import '../../../../assets/styles/InputStyles.css';
 
 import {
     Button,
@@ -8,7 +12,7 @@ import {
     Modal,
     Paper,
     Stack,
-    TextField, Tooltip,
+    TextField,
     Typography,
 } from '@mui/material';
 import LoadingButton from '@mui/lab/LoadingButton';
@@ -18,25 +22,58 @@ import FirstPageIcon from '@mui/icons-material/FirstPage';
 import {
     useLoaderData,
     useParams,
-    useNavigate
+    useNavigate,
 } from 'react-router-dom';
 
+import {toast} from 'react-toastify';
 import PropTypes from 'prop-types';
+
 import SSocketApi from '../../APIs/sSocketAPI.js';
 
+import {createWsApiGlobalCallback} from '../../setupWsApi.js';
+
+
+const parseJWT = (token) => JSON.parse(atob(token.split('.')[1]));
+
+/**
+ * @param {boolean} open - is modal open
+ * @param {function} setUser - set new user when needed
+ * @param {function} setWsApi - set ws api instance when needed
+ * @param {function} setUserList  - set user list when fetched
+ * @return {Element}
+ * */
 const IntroModal = ({open, setUser, setWsApi, setUserList}) => {
     const {chat} = useParams();
     const {chapyApi} = useLoaderData();
     const navigate = useNavigate();
 
-    // eslint-disable-next-line max-len
-    const inputErrorText= 'Name should be unique in chat and can contain less than 30 letters, numbers, or underscores';
+    const toastDataVariants = [
+        'This name is already used chat!',
+        'Name can contain less than 30 letters, numbers, or underscores!',
+    ];
 
     const [isLoading, setIsLoading] = useState(false);
     const [isError, setIsError] = useState(false);
-    const [isOpen, setIsOpen] = useState(open);
+    const toastComponent = useRef(null);
+    const [toastData, setToastData] = useState('');
+    const callWarningToast = () => {
+        toastComponent.current = toast.warning(toastData, {toastId: 'warn-toast'});
+        toast.update(toastComponent.current);
+    };
+    useEffect(() => {
+        if (toastData) {
+            toast.update('warn-toast', {render: toastData});
+        }
+    }, [toastData]);
 
     const [inputValue, setInputValue] = useState('');
+    const handleChange = (e) => {
+        if (e.target.value !== e.target.value.trim()) {
+            callWarningToast();
+        }
+        setInputValue(e.target.value.trim());
+        setIsError(false);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -47,29 +84,36 @@ const IntroModal = ({open, setUser, setWsApi, setUserList}) => {
         setIsLoading(true);
         const res = await chapyApi.connect(inputValue);
 
+        setIsError(!res.connected);
+        setIsLoading(false);
+
+        if (!res.connected) {
+            setToastData(res.message === 'Invalid name' ?
+                toastDataVariants[1] : toastDataVariants[0]);
+            callWarningToast();
+        }
+
         if (res.connected) {
-            const parseJWT = (token) => JSON.parse(atob(token.split('.')[1]));
-            const key = parseJWT(res.wsLink.substr(res.wsLink.search('token=')+6))['key'];
+            const tokenValue = res.wsLink.substring(res.wsLink.search('token=')+6);
+            const key = parseJWT(tokenValue)['key'];
             const currentNames = await chapyApi.names();
-            setUserList(currentNames);
+            const wsApiCallback = createWsApiGlobalCallback(inputValue, chat);
+            setUserList(currentNames.map((name)=>({name, isActive: true})));
             setUser({
                 connected: true,
                 name: inputValue,
+                connTime: new Date().getTime(),
             });
-            setWsApi(new SSocketApi(res.wsLink, key));
+            setWsApi(new SSocketApi(res.wsLink, key, wsApiCallback));
+            toast.dismiss(toastComponent.current);
         }
-        setIsError(!res.connected);
-        setIsLoading(false);
     };
 
-    const handleClick = () => {
-        setIsOpen(!isOpen)
-        navigate('/')
-    }
+    const handleClick = () => navigate('/');
 
     return (
         <Modal
-            open={isOpen}
+            open={open}
             sx={{
                 width: 1,
                 height: 1,
@@ -97,28 +141,31 @@ const IntroModal = ({open, setUser, setWsApi, setUserList}) => {
                     }}
                 >
                     <FormControl>
-                        <Tooltip
-                            arrow
-                            open={isError}
-                            placement={'top'}
-                            title={inputErrorText}
-                        >
-                            <TextField
-                                autoFocus
-                                sx={{mb: 3}}
-                                label={'Your name'}
-                                error={isError}
-                                value={inputValue}
-                                onChange={(e) => {
-                                    setInputValue(e.target.value);
-                                    setIsError(false);
-                                }}
-                            />
-                        </Tooltip>
+                        <TextField
+                            autoFocus
+                            sx={{mb: 3}}
+                            label={'Your nickname'}
+                            error={isError}
+                            value={inputValue}
+                            onChange={(e)=>handleChange(e)}
+                            inputProps={{
+                                name: 'nickname',
+                                autocomplete: 'nickname',
+                            }}
+                        />
                     </FormControl>
-                    <Stack spacing={{xs: 1, sm: 2}} direction="row" useFlexGap>
-                        <Button variant="contained" color='inherit' onClick={handleClick}>
-                            <FirstPageIcon />
+                    <Stack spacing={1} direction="row" useFlexGap>
+                        <Button
+                            variant={'contained'}
+                            color={'inherit'}
+                            onClick={handleClick}
+                            sx={{
+                                p: .75,
+                                minWidth: 'unset',
+                                minHeight: 'unset',
+                            }}
+                        >
+                            <FirstPageIcon/>
                         </Button>
                         <LoadingButton
                             variant={'contained'}
